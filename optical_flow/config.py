@@ -157,3 +157,25 @@ def area_detection_config() -> CardiacCycleConfig:
     config.dia_thres = 0.5
     return config
 
+
+@dataclass
+class OpticalFlowCalculationConfig:
+    """Configuration for optical flow calculation and processing."""
+    lambda_value: float = 0.15
+    moving_avg_window: int = 4
+    moving_avg_threshold: float = 0.49
+    min_mask_size: int = 500
+    waveform_flatness_threshold: float = 0.05
+    pap_max_mean: float = 100.0
+    cvp_max_mean: float = 50.0
+    cvp_min_mean: float = -10.0
+    ecg_sampling_rate: int = 500
+    art_sampling_rate: int = 125
+    cvp_sampling_rate: int = 125
+    pap_sampling_rate: int = 125
+
+
+def default_optical_flow_config() -> OpticalFlowCalculationConfig:
+    """Create default optical flow calculation configuration."""
+    return OpticalFlowCalculationConfig()
+
