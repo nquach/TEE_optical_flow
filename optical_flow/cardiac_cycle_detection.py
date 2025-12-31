@@ -17,7 +17,7 @@ import skimage.measure
 from scipy.stats import mode
 import cv2
 
-from optical_flow_utils import safe_makedir, find_start_stop, timeinterval2index, frame2time, index_smallest_positive
+from optical_flow.optical_flow_utils import safe_makedir, find_start_stop, timeinterval2index, frame2time, index_smallest_positive
 from optical_flow.config import CardiacCycleConfig, VisualizationConfig, ProcessingConfig
 
 

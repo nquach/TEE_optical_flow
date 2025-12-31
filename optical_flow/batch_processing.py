@@ -10,7 +10,7 @@ import traceback
 from typing import List, Optional, Callable
 from tqdm import tqdm
 
-from optical_flow_utils import safe_makedir
+from optical_flow.optical_flow_utils import safe_makedir
 from optical_flow.file_io import PickleSerializer
 from optical_flow.optical_flow_dataset import OpticalFlowDataset
 

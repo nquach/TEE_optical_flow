@@ -24,7 +24,7 @@ from scipy.stats import mode
 from tsmoothie.smoother import SpectralSmoother
 import neurokit2 as nk
 import traceback
-from optical_flow_utils import *
+from optical_flow.optical_flow_utils import *
 
 class OpticalFlowDataset:
 	def __init__(self, hdf5_filepath, keep_file_open=False):

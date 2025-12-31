@@ -16,7 +16,7 @@ import gc
 from skimage.color import gray2rgb
 from typing import Optional, Dict, List, Tuple, Union
 
-from optical_flow_utils import safe_makedir, fix_ecg
+from optical_flow.optical_flow_utils import safe_makedir, fix_ecg
 from optical_flow.config import VisualizationConfig, ProcessingConfig, AnalysisConfig, PeakDetectionConfig
 from optical_flow.peak_detection import calculate_radlong_peaks, calculate_single_peaks
 from tsmoothie.smoother import SpectralSmoother

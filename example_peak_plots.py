@@ -42,7 +42,7 @@ from optical_flow.config import (
     default_cardiac_cycle_config, default_peak_detection_config
 )
 from tsmoothie.smoother import SpectralSmoother
-from optical_flow_utils import safe_makedir
+from optical_flow.optical_flow_utils import safe_makedir
 
 
 def main():

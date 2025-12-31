@@ -12,7 +12,7 @@ import polars as pl
 from typing import List, Optional, Any
 from tqdm import tqdm
 
-from optical_flow_utils import safe_makedir
+from optical_flow.optical_flow_utils import safe_makedir
 
 
 class HDF5Reader:

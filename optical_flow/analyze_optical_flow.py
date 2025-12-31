@@ -24,7 +24,7 @@ from scipy.stats import mode
 from tsmoothie.smoother import SpectralSmoother
 import neurokit2 as nk
 import traceback
-from optical_flow_utils import *
+from optical_flow.optical_flow_utils import *
 from optical_flow_dataset import OpticalFlowDataset
 from optical_flow.config import (
     CardiacCycleConfig, VisualizationConfig, ProcessingConfig, AnalysisConfig,
