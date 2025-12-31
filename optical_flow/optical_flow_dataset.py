@@ -49,7 +49,11 @@ class OpticalFlowDataset:
 		try:
 			self.filename = os.path.basename(hdf5_filepath)[:-4]
 			self.ds_OF = f['flow']
-			self.ds_echo = f['echo'] #this will be grayscale (N,W,H)
+			if keep_file_open:
+				self.ds_echo = f['echo']  # Store as dataset reference
+			else:
+				self.echo_array = f['echo'][()]  # Load immediately as numpy array
+				self.ds_echo = None  # Clear dataset reference
 			self.vel_array = self.ds_OF[()].astype(np.float32) #deep copy the value of the optical flow array (N, H, W, 2)
 			self.nframes = self.ds_OF.attrs['nframes'] - 2
 			self.mode = self.ds_OF.attrs['mode']
@@ -164,7 +168,12 @@ class OpticalFlowDataset:
 				return None
 
 	def get_echo(self):
-		return self.ds_echo[()]
+		if hasattr(self, 'echo_array') and self.echo_array is not None:
+			return self.echo_array
+		elif hasattr(self, 'ds_echo') and self.ds_echo is not None:
+			return self.ds_echo[()]
+		else:
+			return None
 
 	def get_mask(self, label):
 		if self._validate_label(label):
