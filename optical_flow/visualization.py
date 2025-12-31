@@ -100,12 +100,21 @@ class VisualizationManager:
         ygrid_rad = rad_mag_edges
         ygrid_long = long_mag_edges
         
-        plt1 = ax1.pcolormesh(frame_times, ygrid_rad, rad_mag_freq_arr.T,
+        # Create frame_times_edges for pcolormesh (needs nframes + 1 elements)
+        if len(frame_times) > 1:
+            dt = frame_times[1] - frame_times[0]
+            frame_times_edges = np.linspace(frame_times[0] - dt/2, frame_times[-1] + dt/2, nframes + 1)
+        else:
+            # Fallback for edge case
+            dt = 1000 / nframes if nframes > 0 else 1
+            frame_times_edges = np.linspace(frame_times[0] - dt/2, frame_times[0] + dt/2, nframes + 1)
+        
+        plt1 = ax1.pcolormesh(frame_times_edges, ygrid_rad, rad_mag_freq_arr.T,
                               norm=rad_norm, cmap=self.vis_config.colormap_mag)
         ax1.set_ylabel(param.capitalize() + ' (' + param_unit + ')')
         ax1.set_title('Radial ' + param.capitalize() + ' vs Time (ms)')
         
-        plt2 = ax2.pcolormesh(frame_times, ygrid_long, long_mag_freq_arr.T,
+        plt2 = ax2.pcolormesh(frame_times_edges, ygrid_long, long_mag_freq_arr.T,
                               norm=long_norm, cmap=self.vis_config.colormap_mag)
         ax2.set_ylabel(param.capitalize() + ' (' + param_unit + ')')
         ax2.set_title('Longitudinal ' + param.capitalize() + ' vs Time (ms)')
@@ -187,12 +196,21 @@ class VisualizationManager:
         ygrid_mag = mag_edges
         ygrid_ang = ang_edges * 180 / np.pi
         
-        plt1 = ax1.pcolormesh(frame_times, ygrid_mag, mag_arr.T,
+        # Create frame_times_edges for pcolormesh (needs nframes + 1 elements)
+        if len(frame_times) > 1:
+            dt = frame_times[1] - frame_times[0]
+            frame_times_edges = np.linspace(frame_times[0] - dt/2, frame_times[-1] + dt/2, nframes + 1)
+        else:
+            # Fallback for edge case
+            dt = 1000 / nframes if nframes > 0 else 1
+            frame_times_edges = np.linspace(frame_times[0] - dt/2, frame_times[0] + dt/2, nframes + 1)
+        
+        plt1 = ax1.pcolormesh(frame_times_edges, ygrid_mag, mag_arr.T,
                               norm=mag_norm, cmap=self.vis_config.colormap_mag)
         ax1.set_ylabel(param.capitalize() + ' (' + param_unit + ')')
         ax1.set_title('Magnitude of ' + param.capitalize() + ' vs Time (ms)')
         
-        plt2 = ax2.pcolormesh(frame_times, ygrid_ang, ang_arr.T,
+        plt2 = ax2.pcolormesh(frame_times_edges, ygrid_ang, ang_arr.T,
                               norm=ang_norm, cmap=self.vis_config.colormap_ang)
         ax2.set_ylabel('Angle (deg)')
         
