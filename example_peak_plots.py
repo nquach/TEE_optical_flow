@@ -161,6 +161,27 @@ def main():
         print(f"  - Detected {len(sys_frames)} systole intervals")
         print(f"  - Detected {len(dia_frames)} diastole intervals")
         
+        # Extract waveform data based on cc_method
+        waveform_data = None
+        waveform_times = None
+        sampling_rate = None
+        if args.cc_method in ['ecg', 'ecg_lazy']:
+            if ds.ecg is not None:
+                waveform_data = ds.ecg
+                sampling_rate = ds.ecg_sampling_rate
+                waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
+                print(f"  - ECG waveform data available (sampling rate: {sampling_rate} Hz)")
+            else:
+                print(f"  - Warning: ECG data not available for waveform display")
+        elif args.cc_method == 'arterial':
+            if ds.art is not None:
+                waveform_data = ds.art
+                sampling_rate = ds.art_sampling_rate
+                waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
+                print(f"  - Arterial pressure waveform data available (sampling rate: {sampling_rate} Hz)")
+            else:
+                print(f"  - Warning: Arterial pressure data not available for waveform display")
+        
         # Calculate frame times
         frame_times = np.arange(ds.nframes) * (1000 / ds.frame_rate)
         
@@ -290,6 +311,9 @@ def main():
             filt_arr, frame_times, args.param, ds._param_unit(args.param), args.label,
             filename_base, single_plot_path,
             peak_data=single_peak_data,
+            waveform_data=waveform_data,
+            waveform_times=waveform_times,
+            sampling_rate=sampling_rate,
             sys_frames=sys_frames,
             dia_frames=dia_frames,
             nframes=ds.nframes,
@@ -330,6 +354,9 @@ def main():
                 filename_base, radlong_plot_path,
                 rad_peak_data=rad_peak_data,
                 long_peak_data=long_peak_data,
+                waveform_data=waveform_data,
+                waveform_times=waveform_times,
+                sampling_rate=sampling_rate,
                 sys_frames=sys_frames,
                 dia_frames=dia_frames,
                 nframes=ds.nframes,
@@ -370,9 +397,11 @@ def main():
             if args.cc_method in ['ecg', 'ecg_lazy'] and ds.ecg is not None:
                 waveform_data = ds.ecg
                 sampling_rate = ds.ecg_sampling_rate
+                waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
             elif args.cc_method == 'arterial' and ds.art is not None:
                 waveform_data = ds.art
                 sampling_rate = ds.art_sampling_rate
+                waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
             
             vis_manager.plot_heatmap(
                 mag, ang, mag_edges, ang_edges,

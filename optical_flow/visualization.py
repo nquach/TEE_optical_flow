@@ -489,10 +489,12 @@ class VisualizationManager:
             )
         
         waveform_exists = waveform_data is not None
-        show_waveform = waveform_exists
+        # Automatically show waveform subplot if cc_method indicates waveform-based detection
+        should_show_waveform = (cc_method in ['ecg', 'ecg_lazy', 'arterial']) or waveform_exists
+        show_waveform = should_show_waveform and waveform_exists
         
         # Create figure
-        if show_waveform:
+        if should_show_waveform:
             fig, (ax, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, sharey=False, figsize=(8, 6))
         else:
             fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6))
@@ -640,19 +642,30 @@ class VisualizationManager:
                      loc='lower right')
         
         # Add waveform overlay if provided
-        if show_waveform:
-            if 'ecg' in cc_method:
-                if waveform_times is None:
-                    waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
-                waveform_data = fix_ecg(waveform_data, sampling_rate=sampling_rate)
-                ax2.plot(waveform_times, waveform_data)
-                ax2.set_ylabel('Voltage (mV)')
-            elif cc_method == 'arterial':
-                if waveform_times is None:
-                    waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
-                ax2.plot(waveform_times, waveform_data)
-                ax2.set_ylabel('Pressure (mmHg)')
-            ax2.set_xlabel('Time (ms)')
+        if should_show_waveform:
+            if waveform_data is not None:
+                if 'ecg' in cc_method:
+                    if waveform_times is None:
+                        waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
+                    waveform_data = fix_ecg(waveform_data, sampling_rate=sampling_rate)
+                    ax2.plot(waveform_times, waveform_data)
+                    ax2.set_ylabel('Voltage (mV)')
+                elif cc_method == 'arterial':
+                    if waveform_times is None:
+                        waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
+                    ax2.plot(waveform_times, waveform_data)
+                    ax2.set_ylabel('Pressure (mmHg)')
+                ax2.set_xlabel('Time (ms)')
+            else:
+                # Waveform subplot created but no data available
+                ax2.text(0.5, 0.5, 'Waveform data not available', 
+                        horizontalalignment='center', verticalalignment='center',
+                        transform=ax2.transAxes)
+                if 'ecg' in cc_method:
+                    ax2.set_ylabel('Voltage (mV)')
+                elif cc_method == 'arterial':
+                    ax2.set_ylabel('Pressure (mmHg)')
+                ax2.set_xlabel('Time (ms)')
         
         # Calculate statistics
         stats = self._calculate_peak_statistics(rad_peak_data, long_peak_data)
@@ -815,10 +828,12 @@ class VisualizationManager:
             )
         
         waveform_exists = waveform_data is not None
-        show_waveform = waveform_exists
+        # Automatically show waveform subplot if cc_method indicates waveform-based detection
+        should_show_waveform = (cc_method in ['ecg', 'ecg_lazy', 'arterial']) or waveform_exists
+        show_waveform = should_show_waveform and waveform_exists
         
         # Create figure
-        if show_waveform:
+        if should_show_waveform:
             fig, (ax, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, sharey=False, figsize=(8, 6))
         else:
             fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6))
@@ -890,19 +905,30 @@ class VisualizationManager:
         ax.set_ylabel(param.capitalize() + ' (' + param_unit + ')')
         
         # Add waveform overlay if provided
-        if show_waveform:
-            if 'ecg' in cc_method:
-                if waveform_times is None:
-                    waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
-                waveform_data = fix_ecg(waveform_data, sampling_rate=sampling_rate)
-                ax2.plot(waveform_times, waveform_data)
-                ax2.set_ylabel('Voltage (mV)')
-            elif cc_method == 'arterial':
-                if waveform_times is None:
-                    waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
-                ax2.plot(waveform_times, waveform_data)
-                ax2.set_ylabel('Pressure (mmHg)')
-            ax2.set_xlabel('Time (ms)')
+        if should_show_waveform:
+            if waveform_data is not None:
+                if 'ecg' in cc_method:
+                    if waveform_times is None:
+                        waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
+                    waveform_data = fix_ecg(waveform_data, sampling_rate=sampling_rate)
+                    ax2.plot(waveform_times, waveform_data)
+                    ax2.set_ylabel('Voltage (mV)')
+                elif cc_method == 'arterial':
+                    if waveform_times is None:
+                        waveform_times = np.arange(waveform_data.size) * (1000 / sampling_rate)
+                    ax2.plot(waveform_times, waveform_data)
+                    ax2.set_ylabel('Pressure (mmHg)')
+                ax2.set_xlabel('Time (ms)')
+            else:
+                # Waveform subplot created but no data available
+                ax2.text(0.5, 0.5, 'Waveform data not available', 
+                        horizontalalignment='center', verticalalignment='center',
+                        transform=ax2.transAxes)
+                if 'ecg' in cc_method:
+                    ax2.set_ylabel('Voltage (mV)')
+                elif cc_method == 'arterial':
+                    ax2.set_ylabel('Pressure (mmHg)')
+                ax2.set_xlabel('Time (ms)')
         
         # Add systole/diastole shading
         sys_label = None
