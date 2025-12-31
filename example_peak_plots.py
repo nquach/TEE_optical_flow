@@ -33,7 +33,7 @@ import matplotlib.colors
 import gc
 from tqdm import tqdm
 from skimage.color import gray2rgb
-import imageio.v3 as iio
+import imageio.v2 as iio
 
 # Add the optical_flow directory to the path if needed
 sys.path.insert(0, str(Path(__file__).parent))
@@ -484,7 +484,7 @@ def main():
                         mag_rgb_list = []
                         for i in range(ds.nframes):
                             mag_norm = norm(mag_arr[i, ...])
-                            mag_rgb = plt.cm.get_cmap('hot')(mag_norm)
+                            mag_rgb = matplotlib.colormaps['hot'](mag_norm)
                             mag_rgb_list.append(mag_rgb[:, :, 0:3])
                         
                         mag_rgb_arr = np.stack(mag_rgb_list)

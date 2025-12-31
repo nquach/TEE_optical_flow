@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-import imageio.v3 as iio
+import imageio.v2 as iio
 import matplotlib.colors
 import matplotlib.cm as cm
 from tqdm import tqdm

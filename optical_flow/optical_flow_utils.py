@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-import imageio.v3 as iio
+import imageio.v2 as iio
 import matplotlib.colors
 import matplotlib.cm as cm
 from tqdm import tqdm
@@ -27,19 +27,8 @@ def safe_makedir(path):
 	if not os.path.exists(path):
 		os.makedirs(path)
 
-def pad_with_last_frame(im_arr):
-	ndim = len(im_arr.shape)
-	if ndim == 3:
-		return np.vstack((im_arr, np.expand_dims(im_arr[-1,:,:], axis=0)))
-	if ndim == 4:
-		return np.vstack((im_arr, np.expand_dims(im_arr[-1,:,:,:], axis=0)))
-
 def img2uint8(img):
 	return img_as_ubyte((img - np.min(img))/np.max(img))
-
-def overlay(arr1, arr2):
-	x = (0.5 * (arr1/ np.max(arr1)) + 0.5 * (arr2/ np.max(arr2))) * 255
-	return x.astype(np.uint8)
 
 def index_smallest_positive(l):
 	non_neg = [i for i in l if i > 0]
@@ -58,12 +47,6 @@ def find_start_stop(arr):
 		start_idx = end_idx
 	clusters.append([arr[start_idx], arr[-1]])
 	return clusters
-
-def overlay_resize_img(arr1, arr2, resize_factor=0.25):
-	arr1 = cv2.resize(np.squeeze(arr1), None, fx=resize_factor, fy=resize_factor, interpolation=cv2.INTER_AREA)
-	arr2 = cv2.resize(np.squeeze(arr2), None, fx=resize_factor, fy=resize_factor, interpolation=cv2.INTER_AREA)
-	x = (0.5 * (arr1/ np.max(arr1)) + 0.5 * (arr2/ np.max(arr2))) * 255
-	return x.astype(np.uint8)
 
 def fix_ecg(ecg_arr, sampling_rate, smooth_fraction=0.2, pad_len=20):
 	ecg = nk.ecg_clean(ecg_arr, sampling_rate=sampling_rate, method='vg')

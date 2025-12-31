@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors
 from matplotlib.colors import LogNorm
-import imageio.v3 as iio
+import imageio.v2 as iio
 from tqdm import tqdm
 import gc
 from skimage.color import gray2rgb
@@ -269,8 +269,8 @@ class VisualizationManager:
         for rad_arr_frame, long_arr_frame in zip(rad_arr_sqz, long_arr_sqz):
             rad_norm = norm(rad_arr_frame)
             long_norm = norm(long_arr_frame)
-            rad_rgb = plt.cm.get_cmap(self.vis_config.colormap_rad)(rad_norm)
-            long_rgb = plt.cm.get_cmap(self.vis_config.colormap_long)(long_norm)
+            rad_rgb = matplotlib.colormaps[self.vis_config.colormap_rad](rad_norm)
+            long_rgb = matplotlib.colormaps[self.vis_config.colormap_long](long_norm)
             rad_norm_list.append(rad_rgb[:, :, 0:3])
             long_norm_list.append(long_rgb[:, :, 0:3])
         
