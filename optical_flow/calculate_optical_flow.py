@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import os
+import sys
+from pathlib import Path
 import pydicom as dcm
 from tqdm import tqdm
 from skimage.color import rgb2gray, gray2rgb
@@ -18,6 +20,13 @@ from argparse import Namespace
 import torch
 from torchvision import transforms
 from PIL import Image
+
+# Add finetune-SAM directory to Python path for models import
+current_file = Path(__file__).resolve()
+repo_root = current_file.parent.parent
+finetune_sam_dir = repo_root / 'finetune-SAM'
+if str(finetune_sam_dir) not in sys.path:
+    sys.path.insert(0, str(finetune_sam_dir))
 
 # SAM model
 from models.sam import sam_model_registry
