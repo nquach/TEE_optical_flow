@@ -97,6 +97,16 @@ class VisualizationManager:
         rad_norm = LogNorm(vmin=np.min(rad_mag_freq_arr), vmax=np.max(rad_mag_freq_arr))
         long_norm = LogNorm(vmin=np.min(long_mag_freq_arr), vmax=np.max(long_mag_freq_arr))
         
+        # Reconstruct full edges arrays if they were sliced (needed for pcolormesh)
+        # pcolormesh requires edges to have nbins+1 elements, but calculate_3dhist_radlong returns nbins
+        if len(rad_mag_edges) == rad_mag_freq_arr.shape[1]:  # edges have nbins elements, should have nbins+1
+            bin_width = rad_mag_edges[1] - rad_mag_edges[0] if len(rad_mag_edges) > 1 else 1.0
+            rad_mag_edges = np.concatenate([rad_mag_edges, [rad_mag_edges[-1] + bin_width]])
+        
+        if len(long_mag_edges) == long_mag_freq_arr.shape[1]:  # edges have nbins elements, should have nbins+1
+            bin_width = long_mag_edges[1] - long_mag_edges[0] if len(long_mag_edges) > 1 else 1.0
+            long_mag_edges = np.concatenate([long_mag_edges, [long_mag_edges[-1] + bin_width]])
+        
         ygrid_rad = rad_mag_edges
         ygrid_long = long_mag_edges
         
