@@ -942,6 +942,7 @@ class VisualizationManager:
             ax.legend(loc='lower right')
         
         # Calculate and print/return statistics
+        stats = None
         if print_report or return_statistics:
             stats = self._calculate_single_peak_statistics(peak_data)
             
@@ -964,24 +965,26 @@ class VisualizationManager:
                     print(f'Global peak late diastolic {label.upper()} {param}: {stats["peak_a"]:.2f}')
                     print(f'Global mean late diastolic {label.upper()} {param}: {stats["mean_a"]:.2f}')
                 print('=====================')
-            
-            if return_statistics:
-                if len(sys_py) == 0:
-                    print(f'ERROR not complete cardiac cycle: systolic cycles={len(sys_py)}')
-                result_tuple = (
-                    stats['peak_sys'], stats['mean_sys'],
-                    stats['peak_e'], stats['mean_e'],
-                    stats['peak_l'], stats['mean_l'],
-                    stats['peak_a'], stats['mean_a'],
-                    stats['n_cycles']
-                )
-                return result_tuple
         
+        # Always save the file
         safe_makedir(os.path.dirname(save_path))
         fig.tight_layout()
         fig.savefig(save_path)
         if not self.vis_config.show_img:
             plt.close(fig)
+        
+        # Return statistics if requested
+        if return_statistics and stats is not None:
+            if len(sys_py) == 0:
+                print(f'ERROR not complete cardiac cycle: systolic cycles={len(sys_py)}')
+            result_tuple = (
+                stats['peak_sys'], stats['mean_sys'],
+                stats['peak_e'], stats['mean_e'],
+                stats['peak_l'], stats['mean_l'],
+                stats['peak_a'], stats['mean_a'],
+                stats['n_cycles']
+            )
+            return result_tuple
         
         return fig
     

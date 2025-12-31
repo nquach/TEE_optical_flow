@@ -28,6 +28,12 @@ import os
 import sys
 import numpy as np
 from pathlib import Path
+import matplotlib.pyplot as plt
+import matplotlib.colors
+import gc
+from tqdm import tqdm
+from skimage.color import gray2rgb
+import imageio.v3 as iio
 
 # Add the optical_flow directory to the path if needed
 sys.path.insert(0, str(Path(__file__).parent))
@@ -74,8 +80,26 @@ def main():
                        help='Show systole/diastole shading on plots')
     parser.add_argument('--show_all_peaks', action='store_true',
                        help='Show all detected peaks instead of just cardiac cycle peaks')
+    parser.add_argument('--generate_heatmaps', action='store_true',
+                       help='Generate heatmap visualizations')
+    parser.add_argument('--generate_videos', action='store_true',
+                       help='Generate MP4 video visualizations')
+    parser.add_argument('--video_dir', type=str, default=None,
+                       help='Directory to save MP4 videos (default: {output_dir}/videos)')
+    parser.add_argument('--fps', type=int, default=30,
+                       help='Frame rate for videos (default: 30)')
+    parser.add_argument('--no_av_filter', action='store_true',
+                       help='Disable AV centroid filtering for radial/longitudinal (default: filter enabled)')
+    parser.add_argument('--av_savgol_window', type=int, default=10,
+                       help='Savitzky-Golay window size for AV centroid filtering (default: 10)')
+    parser.add_argument('--av_savgol_poly', type=int, default=4,
+                       help='Savitzky-Golay polynomial order (default: 4)')
     
     args = parser.parse_args()
+    
+    # Set default video_dir if not provided
+    if args.video_dir is None:
+        args.video_dir = os.path.join(args.output_dir, 'videos')
     
     # Validate input file
     if not os.path.exists(args.hdf5_filepath):
@@ -237,13 +261,22 @@ def main():
             show_sysdia_shading=args.show_sysdia,
             show_peak_annotations=True,
             print_report=True,
-            return_statistics=True
+            return_statistics=True,
+            fps=args.fps
         )
-        proc_config = ProcessingConfig(recalculate=True, verbose=False)
+        proc_config = ProcessingConfig(recalculate=True, verbose=True)
         vis_manager = VisualizationManager(vis_config, proc_config)
         
+        # Calculate total steps for progress reporting
+        step_count = 6
+        total_steps = 6
+        if args.generate_heatmaps:
+            total_steps += 2
+        if args.generate_videos:
+            total_steps += 1
+        
         # Generate plots
-        print(f"\n[6/6] Generating peak line plots...")
+        print(f"\n[{step_count}/{total_steps}] Generating peak line plots...")
         
         # Single component plot
         filename_base = os.path.basename(args.hdf5_filepath).replace('.hdf5', '')
@@ -320,9 +353,177 @@ def main():
                 print(f"    Longitudinal - Peak a': {radlong_stats[14]:.2f}, Mean: {radlong_stats[15]:.2f}")
                 print(f"    Radial cycles: {radlong_stats[16]}, Longitudinal cycles: {radlong_stats[17]}")
         
+        # Generate heatmaps if requested
+        if args.generate_heatmaps:
+            step_count += 1
+            print(f"\n[{step_count}/{total_steps}] Generating single component heatmap...")
+            single_heatmap_path = os.path.join(
+                args.output_dir,
+                f"{filename_base}_{args.label}_{args.param}_{args.percentile}_{args.cc_method}_heatmap.png"
+            )
+            print(f"  - Saving to: {single_heatmap_path}")
+            
+            # Get waveform data if available
+            waveform_data = None
+            waveform_times = None
+            sampling_rate = None
+            if args.cc_method in ['ecg', 'ecg_lazy'] and ds.ecg is not None:
+                waveform_data = ds.ecg
+                sampling_rate = ds.ecg_sampling_rate
+            elif args.cc_method == 'arterial' and ds.art is not None:
+                waveform_data = ds.art
+                sampling_rate = ds.art_sampling_rate
+            
+            vis_manager.plot_heatmap(
+                mag, ang, mag_edges, ang_edges,
+                frame_times, args.param, ds._param_unit(args.param),
+                filename_base, single_heatmap_path,
+                waveform_data=waveform_data,
+                waveform_times=waveform_times,
+                sampling_rate=sampling_rate,
+                sys_frames=sys_frames,
+                dia_frames=dia_frames,
+                nframes=ds.nframes,
+                cc_method=args.cc_method,
+                show_sysdia=args.show_sysdia
+            )
+            print(f"  - Single component heatmap saved")
+            
+            # Generate radial/longitudinal heatmap if available
+            if radlong_data is not None:
+                step_count += 1
+                print(f"\n[{step_count}/{total_steps}] Generating radial/longitudinal heatmap...")
+                radlong_heatmap_path = os.path.join(
+                    args.output_dir,
+                    f"{filename_base}_{args.label}_{args.param}_{args.percentile}_{args.cc_method}_radlong_heatmap.png"
+                )
+                print(f"  - Saving to: {radlong_heatmap_path}")
+                
+                # Extract data from radlong_data
+                rad_mag_freq_arr = radlong_data['radial'][0]
+                rad_mag_edges = radlong_data['radial'][1]
+                long_mag_freq_arr = radlong_data['longitudinal'][0]
+                long_mag_edges = radlong_data['longitudinal'][1]
+                
+                vis_manager.plot_radlong_heatmap(
+                    rad_mag_freq_arr, long_mag_freq_arr,
+                    rad_mag_edges, long_mag_edges,
+                    frame_times, args.param, ds._param_unit(args.param),
+                    filename_base, radlong_heatmap_path,
+                    waveform_data=waveform_data,
+                    waveform_times=waveform_times,
+                    sampling_rate=sampling_rate,
+                    sys_frames=sys_frames,
+                    dia_frames=dia_frames,
+                    nframes=ds.nframes,
+                    cc_method=args.cc_method,
+                    show_sysdia=args.show_sysdia
+                )
+                print(f"  - Radial/longitudinal heatmap saved")
+        
+        # Generate videos if requested
+        if args.generate_videos:
+            step_count += 1
+            print(f"\n[{step_count}/{total_steps}] Generating MP4 videos...")
+            
+            # Check if echo data is available
+            if ds.mode == 'otsu':
+                print(f"  - Warning: Video generation not supported for 'otsu' mode, skipping...")
+            else:
+                try:
+                    echo_arr = ds.get_echo()
+                    if echo_arr is None:
+                        print(f"  - Warning: Echo data not available, skipping video generation...")
+                    else:
+                        safe_makedir(args.video_dir)
+                        
+                        # Generate single component video
+                        print(f"  - Generating single component video...")
+                        single_video_path = os.path.join(
+                            args.video_dir,
+                            f"{filename_base}_{args.label}_{args.param}_single_overlay.mp4"
+                        )
+                        print(f"    Saving to: {single_video_path}")
+                        
+                        # Calculate magnitude array
+                        mag_arr = np.sqrt(masked_arr[..., 0]**2 + masked_arr[..., 1]**2)
+                        
+                        # Convert to colormap and overlay
+                        pixel_arr = gray2rgb(echo_arr)
+                        norm = matplotlib.colors.Normalize(vmin=np.min(mag_arr), vmax=np.max(mag_arr))
+                        
+                        mag_rgb_list = []
+                        for i in range(ds.nframes):
+                            mag_norm = norm(mag_arr[i, ...])
+                            mag_rgb = plt.cm.get_cmap('hot')(mag_norm)
+                            mag_rgb_list.append(mag_rgb[:, :, 0:3])
+                        
+                        mag_rgb_arr = np.stack(mag_rgb_list)
+                        del mag_rgb_list
+                        gc.collect()
+                        
+                        # Overlay on echo images (similar to _overlay3 method)
+                        overlay_arr = np.zeros_like(pixel_arr)
+                        for i in range(ds.nframes):
+                            # Normalize each frame separately
+                            pixel_frame = pixel_arr[i, ...]
+                            mag_frame = mag_rgb_arr[i, ...]
+                            pixel_norm = pixel_frame / np.max(pixel_frame) if np.max(pixel_frame) > 0 else pixel_frame
+                            mag_norm = mag_frame / np.max(mag_frame) if np.max(mag_frame) > 0 else mag_frame
+                            overlay_arr[i, ...] = (0.5 * pixel_norm + 0.5 * mag_norm) * 255
+                        overlay_arr = overlay_arr.astype(np.uint8)
+                        
+                        del pixel_arr, mag_rgb_arr
+                        gc.collect()
+                        
+                        # Write video
+                        writer = iio.get_writer(single_video_path, fps=args.fps)
+                        for i in tqdm(range(ds.nframes), disable=False):
+                            writer.append_data(overlay_arr[i, ...])
+                        writer.close()
+                        print(f"    Single component video saved")
+                        
+                        # Generate radial/longitudinal video if available
+                        if radlong_data is not None and 'av' in ds.accepted_labels:
+                            av_masks = ds.get_mask('av')
+                            if av_masks is not None:
+                                print(f"  - Generating radial/longitudinal video...")
+                                radlong_video_path = os.path.join(
+                                    args.video_dir,
+                                    f"{filename_base}_{args.label}_{args.param}_radlong_overlay.mp4"
+                                )
+                                print(f"    Saving to: {radlong_video_path}")
+                                
+                                # Import required functions
+                                from optical_flow.analysis import calc_AV_centroid, calculate_comp_magnitude
+                                
+                                # Calculate centroids and components
+                                av_filter_flag = not args.no_av_filter
+                                centroid_list = calc_AV_centroid(
+                                    av_masks, ds.nframes,
+                                    filter=av_filter_flag,
+                                    savgol_window=args.av_savgol_window,
+                                    savgol_poly=args.av_savgol_poly,
+                                    verbose=False
+                                )
+                                rad_arr, long_arr = calculate_comp_magnitude(masked_arr, centroid_list, verbose=False)
+                                
+                                # Use existing visualize_radlong method
+                                vis_manager.visualize_radlong(
+                                    rad_arr, long_arr, echo_arr, centroid_list,
+                                    filename_base, radlong_video_path, ds.nframes
+                                )
+                                print(f"    Radial/longitudinal video saved")
+                except Exception as e:
+                    print(f"  - Error generating videos: {e}")
+                    import traceback
+                    traceback.print_exc()
+        
         print("\n" + "=" * 80)
         print("Peak line plot generation complete!")
         print(f"Plots saved to: {args.output_dir}")
+        if args.generate_videos:
+            print(f"Videos saved to: {args.video_dir}")
         print("=" * 80)
 
 
