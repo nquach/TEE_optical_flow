@@ -225,3 +225,152 @@ def calculate_radlong_peaks(hi_arr: np.ndarray, lo_arr: np.ndarray, frame_times:
         'a_py': a_py
     }
 
+
+def calculate_single_peaks(filt_arr: np.ndarray, frame_times: np.ndarray,
+                           sys_frames: List[Tuple[int, int]], dia_frames: List[Tuple[int, int]],
+                           nframes: int, cc_method: str = 'angle',
+                           peak_thres: float = 0.2, min_dist: int = 5,
+                           pick_peak_by_subset: bool = False,
+                           show_all_peaks: bool = False) -> dict:
+    """
+    Calculate peaks for single component (non-radial/longitudinal).
+    
+    Args:
+        filt_arr: Filtered/smoothed array
+        frame_times: Time array for frames
+        sys_frames: Systole frame intervals
+        dia_frames: Diastole frame intervals
+        nframes: Total number of frames
+        cc_method: Cardiac cycle detection method
+        peak_thres: Peak detection threshold
+        min_dist: Minimum distance between peaks
+        pick_peak_by_subset: Whether to pick peaks from subset
+        show_all_peaks: Whether to return all peaks or just cardiac cycle peaks
+    
+    Returns:
+        Dictionary with:
+        - 'filt_arr': filtered array
+        - 'true_sys': systole frame intervals
+        - 'true_dia': diastole frame intervals
+        - 'sys_px', 'sys_py': systolic peak coordinates
+        - 'e_px', 'e_py': e' peak coordinates
+        - 'l_px', 'l_py': l' peak coordinates
+        - 'a_px', 'a_py': a' peak coordinates
+        - 'all_px', 'all_py': all peaks (if show_all_peaks=True)
+    """
+    # Find all peaks
+    peaks_i = peakutils.peak.indexes(filt_arr, thres=peak_thres, min_dist=min_dist)
+    
+    # Detect systolic peaks
+    sys_i = []
+    true_sys = []
+    for start, stop in sys_frames:
+        if pick_peak_by_subset:
+            candidate_i = peakutils.peak.indexes(
+                filt_arr[start:stop + 1], thres=peak_thres, min_dist=min_dist
+            ) + start
+        else:
+            candidate_i = [k for k in peaks_i if ((k >= start) and (k <= stop))]
+        
+        if len(candidate_i) > 0:
+            candidate_y = [filt_arr[i] for i in candidate_i]
+            max_idx = np.argmax(candidate_y)
+            sys_i.append(candidate_i[max_idx])
+            true_sys.append([start, stop])
+        else:
+            print('Warning no sys peak found! Using max value')
+            sys_i.append(np.argmax(filt_arr[start:stop]) + start)
+    
+    # Determine true_sys and true_dia based on method
+    if cc_method == 'angle':
+        true_dia = []
+        if len(true_sys) > 0:
+            if true_sys[0][0] > 1:
+                true_dia.append([0, true_sys[0][0] - 1])
+            if true_sys[-1][1] < (nframes - 2):
+                true_dia.append([true_sys[-1][1], nframes - 1])
+            for i in range(len(true_sys) - 1):
+                start1, stop1 = true_sys[i]
+                start2, stop2 = true_sys[i + 1]
+                true_dia.append([stop1, start2])
+    else:
+        true_dia = dia_frames
+        true_sys = sys_frames
+    
+    # Detect diastolic peaks (e', l', a')
+    e_i = []
+    l_i = []
+    a_i = []
+    
+    for start, stop in true_dia:
+        e_start = int(start)
+        e_stop = int(start + np.floor((stop - start) / 3))
+        l_start = int(e_stop + 1)
+        l_stop = int(l_start + np.floor((stop - start) / 3))
+        a_start = int(l_stop + 1)
+        a_stop = int(stop + 1)
+        
+        if pick_peak_by_subset:
+            e_candidate_i = peakutils.peak.indexes(
+                filt_arr[e_start:e_stop + 1], thres=peak_thres, min_dist=min_dist
+            ) + e_start
+            l_candidate_i = peakutils.peak.indexes(
+                filt_arr[l_start:l_stop + 1], thres=peak_thres, min_dist=min_dist
+            ) + l_start
+            a_candidate_i = peakutils.peak.indexes(
+                filt_arr[a_start:a_stop + 1], thres=peak_thres, min_dist=min_dist
+            ) + a_start
+        else:
+            e_candidate_i = [k for k in peaks_i if ((k >= e_start) and (k <= e_stop))]
+            l_candidate_i = [k for k in peaks_i if ((k >= l_start) and (k <= l_stop))]
+            a_candidate_i = [k for k in peaks_i if ((k >= a_start) and (k <= a_stop))]
+        
+        # Process e' peak
+        if len(e_candidate_i) > 0:
+            e_candidate_y = [filt_arr[i] for i in e_candidate_i]
+            e_index = np.argmax(e_candidate_y)
+            e_i.append(e_candidate_i[e_index])
+        else:
+            print('Warning no e\' peak found! Using max value')
+            e_i.append(np.argmax(filt_arr[e_start:e_stop]) + e_start)
+        
+        # Process l' peak
+        if len(l_candidate_i) > 0:
+            l_candidate_y = [filt_arr[i] for i in l_candidate_i]
+            l_index = np.argmax(l_candidate_y)
+            l_i.append(l_candidate_i[l_index])
+        else:
+            print('Warning no l\' peak found! Using max value')
+            l_i.append(np.argmax(filt_arr[l_start:l_stop]) + l_start)
+        
+        # Process a' peak
+        if len(a_candidate_i) > 0:
+            a_candidate_y = [filt_arr[i] for i in a_candidate_i]
+            a_index = np.argmax(a_candidate_y)
+            a_i.append(a_candidate_i[a_index])
+        else:
+            print('Warning no a\' peak found! Using max value')
+            a_i.append(np.argmax(filt_arr[a_start:a_stop]) + a_start)
+    
+    # Prepare return values
+    result = {
+        'filt_arr': filt_arr,
+        'true_sys': true_sys,
+        'true_dia': true_dia,
+        'sys_px': frame_times[sys_i],
+        'sys_py': filt_arr[sys_i],
+        'e_px': frame_times[e_i],
+        'e_py': filt_arr[e_i],
+        'l_px': frame_times[l_i],
+        'l_py': filt_arr[l_i],
+        'a_px': frame_times[a_i],
+        'a_py': filt_arr[a_i]
+    }
+    
+    # Add all peaks if requested
+    if show_all_peaks:
+        result['all_px'] = frame_times[peaks_i]
+        result['all_py'] = filt_arr[peaks_i]
+    
+    return result
+

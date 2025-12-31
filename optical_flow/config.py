@@ -6,7 +6,7 @@ function parameter counts and centralizing configuration management.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Literal, List
+from typing import Optional, Literal, List, Tuple
 
 
 @dataclass
@@ -44,6 +44,19 @@ class VisualizationConfig:
     colormap_ang: str = 'viridis'
     colormap_rad: str = 'bwr'
     colormap_long: str = 'BrBG'
+    show_peak_annotations: bool = True
+    peak_marker_size: int = 8
+    peak_marker_style: str = '+'
+    peak_annotation_fontsize: int = 8
+    peak_annotation_offset: Tuple[float, float] = (1.5, 1.5)
+    radial_peak_color: str = 'r'
+    longitudinal_peak_color: str = 'b'
+    systolic_peak_color: str = 'r'
+    diastolic_peak_color: str = 'b'
+    show_sysdia_shading: bool = False
+    true_sysdia_mode: Literal['radial', 'longitudinal'] = 'radial'
+    print_report: bool = False
+    return_statistics: bool = False
 
 
 @dataclass

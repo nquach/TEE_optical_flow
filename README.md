@@ -27,8 +27,8 @@ This codebase provides tools for:
    - Arterial pressure-gated detection
    - DICOM metadata-based detection (R-wave times)
 3. **Component Analysis**: Decompose optical flow into radial and longitudinal components
-4. **Peak Detection**: Identify systolic and diastolic peaks (e', l', a')
-5. **Visualization**: Generate heatmaps, plots, and video overlays
+4. **Peak Detection**: Identify systolic and diastolic peaks (e', l', a') for both radial/longitudinal and single component data
+5. **Visualization**: Generate heatmaps, plots, and video overlays with peak markers, systole/diastole shading, and statistics reporting
 
 ## Features
 
@@ -283,13 +283,19 @@ long_data = data_dict['longitudinal']
 
 ```python
 from optical_flow.visualization import VisualizationManager
-from optical_flow.config import VisualizationConfig
+from optical_flow.config import VisualizationConfig, PeakDetectionConfig
+from optical_flow.peak_detection import calculate_single_peaks
+from tsmoothie.smoother import SpectralSmoother
 
 # Create visualization manager
 vis_config = VisualizationConfig(
     save_dir='output/plots',
     show_img=False,
-    nbins=1000
+    nbins=1000,
+    show_sysdia_shading=True,      # Enable systole/diastole shading
+    show_peak_annotations=True,     # Show peak value annotations
+    print_report=False,            # Print statistics report
+    return_statistics=False        # Return statistics tuple
 )
 vis_manager = VisualizationManager(vis_config)
 
@@ -298,6 +304,70 @@ vis_manager.plot_heatmap(
     mag_arr, ang_arr, mag_edges, ang_edges,
     frame_times, 'velocity', 'cm/s',
     'filename', 'output/heatmap.png'
+)
+
+# Plot single component peak line plot
+# Option 1: Provide pre-calculated peak data
+peak_data = calculate_single_peaks(
+    filt_arr, frame_times, sys_frames, dia_frames, ds.nframes,
+    cc_method='angle'
+)
+vis_manager.plot_peak_line(
+    filt_arr, frame_times, 'velocity', 'cm/s', 'rv',
+    'filename', 'output/peak_line.png',
+    peak_data=peak_data,
+    sys_frames=sys_frames,
+    dia_frames=dia_frames,
+    nframes=ds.nframes,
+    cc_method='angle',
+    show_sysdia=True,              # Show systole/diastole shading
+    mode='RVIO_2class',            # Dataset mode (shading only if != 'otsu')
+    print_report=True,             # Print statistics report
+    return_statistics=False,       # Return statistics tuple
+    show_all_peaks=False           # Show all peaks or just cardiac cycle peaks
+)
+
+# Option 2: Let plot_peak_line calculate peaks internally
+vis_manager.plot_peak_line(
+    filt_arr=None,                 # Will be calculated from hi_arr
+    frame_times=frame_times,
+    param='velocity',
+    param_unit='cm/s',
+    label='rv',
+    filename='filename',
+    save_path='output/peak_line.png',
+    hi_arr=hi_arr,                 # High percentile array
+    sys_frames=sys_frames,
+    dia_frames=dia_frames,
+    nframes=ds.nframes,
+    cc_method='angle',
+    peak_config=PeakDetectionConfig(
+        smooth_fraction=0.5,
+        pad_len=20,
+        peak_thres=0.2,
+        min_dist=5
+    ),
+    show_sysdia=True,
+    mode='RVIO_2class',
+    print_report=True,
+    return_statistics=True         # Returns tuple: (peak_sys, mean_sys, peak_e, mean_e, peak_l, mean_l, peak_a, mean_a, n_cycles)
+)
+
+# Plot radial/longitudinal peak line plot
+vis_manager.plot_peak_line_radlong(
+    rad_hi_arr, rad_lo_arr, long_hi_arr, long_lo_arr,
+    frame_times, 'velocity', 'cm/s',
+    'filename', 'output/radlong_peak_line.png',
+    rad_peak_data=rad_peak_data,
+    long_peak_data=long_peak_data,
+    sys_frames=sys_frames,
+    dia_frames=dia_frames,
+    nframes=ds.nframes,
+    cc_method='angle',
+    show_sysdia=True,
+    true_sysdia_mode='radial',     # Use radial or longitudinal for shading
+    print_report=True,
+    return_statistics=True         # Returns tuple of 18 values
 )
 
 # Create radial/longitudinal overlay video
@@ -309,6 +379,8 @@ vis_manager.visualize_radlong(
 
 ### Peak Detection
 
+#### Radial/Longitudinal Peak Detection
+
 ```python
 from optical_flow.peak_detection import calculate_radlong_peaks
 from optical_flow.config import PeakDetectionConfig
@@ -319,7 +391,7 @@ peak_config = PeakDetectionConfig(
     pick_peak_by_subset=True
 )
 
-# Calculate peaks
+# Calculate peaks for radial/longitudinal components
 results = calculate_radlong_peaks(
     hi_arr, lo_arr, frame_times,
     sys_frames, dia_frames, ds.nframes,
@@ -333,6 +405,47 @@ sys_px = results['sys_px']  # Systolic peak x-coordinates
 e_px = results['e_px']      # e' peak x-coordinates
 l_px = results['l_px']      # l' peak x-coordinates
 a_px = results['a_px']      # a' peak x-coordinates
+```
+
+#### Single Component Peak Detection
+
+```python
+from optical_flow.peak_detection import calculate_single_peaks
+from tsmoothie.smoother import SpectralSmoother
+
+# First, smooth the high percentile array
+smoother = SpectralSmoother(smooth_fraction=0.5, pad_len=20)
+smoother.smooth(hi_arr)
+filt_arr = smoother.smooth_data[0]
+
+# Calculate peaks for single component
+frame_times = np.arange(ds.nframes) * (1000 / ds.frame_rate)
+peak_data = calculate_single_peaks(
+    filt_arr, frame_times,
+    sys_frames, dia_frames, ds.nframes,
+    cc_method='angle',
+    peak_thres=0.2,
+    min_dist=5,
+    pick_peak_by_subset=True,
+    show_all_peaks=False  # Set to True to return all detected peaks
+)
+
+# Access results
+sys_px = peak_data['sys_px']  # Systolic peak x-coordinates
+sys_py = peak_data['sys_py']  # Systolic peak y-coordinates
+e_px = peak_data['e_px']       # e' peak x-coordinates
+e_py = peak_data['e_py']      # e' peak y-coordinates
+l_px = peak_data['l_px']      # l' peak x-coordinates
+l_py = peak_data['l_py']      # l' peak y-coordinates
+a_px = peak_data['a_px']      # a' peak x-coordinates
+a_py = peak_data['a_py']      # a' peak y-coordinates
+true_sys = peak_data['true_sys']  # Systole frame intervals
+true_dia = peak_data['true_dia']  # Diastole frame intervals
+
+# If show_all_peaks=True, also get:
+if 'all_px' in peak_data:
+    all_px = peak_data['all_px']  # All detected peak x-coordinates
+    all_py = peak_data['all_py']  # All detected peak y-coordinates
 ```
 
 ### Batch Processing
@@ -393,7 +506,20 @@ vis_config = VisualizationConfig(
     show_plot=False,
     nbins=1000,
     colormap_mag='hot',
-    colormap_ang='viridis'
+    colormap_ang='viridis',
+    show_peak_annotations=True,        # Show peak value annotations on plots
+    peak_marker_size=8,                # Size of peak markers
+    peak_marker_style='+',             # Style of peak markers ('+', 'o', 'x', etc.)
+    peak_annotation_fontsize=8,         # Font size for peak annotations
+    peak_annotation_offset=(1.5, 1.5), # (x, y) offset for annotations in points
+    radial_peak_color='r',             # Color for radial peak markers
+    longitudinal_peak_color='b',        # Color for longitudinal peak markers
+    systolic_peak_color='r',           # Color for systolic peak markers
+    diastolic_peak_color='b',          # Color for diastolic peak markers
+    show_sysdia_shading=False,         # Show systole/diastole shading on plots
+    true_sysdia_mode='radial',         # Which component to use for shading ('radial' or 'longitudinal')
+    print_report=False,                # Print statistics report to console
+    return_statistics=False            # Return statistics tuple from plotting functions
 )
 
 # Processing configuration
@@ -493,10 +619,35 @@ with OpticalFlowDataset('data.hdf5') as ds:
     
     # 4. Visualize
     vis_manager = VisualizationManager(
-        VisualizationConfig(save_dir='output'),
+        VisualizationConfig(save_dir='output', show_sysdia_shading=True),
         ProcessingConfig(verbose=True)
     )
-    # ... create plots
+    
+    # Plot single component peak line
+    hi_arr = data_dict['radial'][2]  # High percentile array
+    smoother = SpectralSmoother(smooth_fraction=0.5, pad_len=20)
+    smoother.smooth(hi_arr)
+    filt_arr = smoother.smooth_data[0]
+    frame_times = np.arange(ds.nframes) * (1000 / ds.frame_rate)
+    
+    peak_data = calculate_single_peaks(
+        filt_arr, frame_times, sys_frames, dia_frames, ds.nframes,
+        cc_method='ecg_lazy'
+    )
+    
+    vis_manager.plot_peak_line(
+        filt_arr, frame_times, 'velocity', 'cm/s', 'rv',
+        'filename', 'output/peak_line.png',
+        peak_data=peak_data,
+        sys_frames=sys_frames,
+        dia_frames=dia_frames,
+        nframes=ds.nframes,
+        cc_method='ecg_lazy',
+        show_sysdia=True,
+        mode='RVIO_2class',
+        print_report=True,
+        return_statistics=True
+    )
 ```
 
 ### Example 2: Using the High-Level API
@@ -627,13 +778,21 @@ Analysis functions:
 
 ### `peak_detection.py`
 Peak detection:
-- `PeakDetector`: Peak detection class
+- `PeakDetector`: Peak detection class for radial/longitudinal components
 - `calculate_radlong_peaks()`: Calculate peaks for radial/longitudinal data
+- `calculate_single_peaks()`: Calculate peaks for single component (non-radial/longitudinal) data
 
 ### `visualization.py`
 Visualization:
 - `VisualizationManager`: Main visualization class
-- Methods: `plot_radlong_heatmap()`, `plot_heatmap()`, `visualize_radlong()`
+- Methods:
+  - `plot_radlong_heatmap()`: Plot radial/longitudinal heatmap
+  - `plot_heatmap()`: Plot magnitude/angle heatmap
+  - `plot_peak_line()`: Plot single component peak line plot with peak markers, systole/diastole shading, and statistics reporting
+  - `plot_peak_line_radlong()`: Plot radial/longitudinal peak line plot with peak markers and statistics
+  - `visualize_radlong()`: Create radial/longitudinal overlay video
+  - `_calculate_single_peak_statistics()`: Calculate peak statistics for single component (internal helper)
+  - `_calculate_peak_statistics()`: Calculate peak statistics for radial/longitudinal components (internal helper)
 
 ### `file_io.py`
 File I/O:

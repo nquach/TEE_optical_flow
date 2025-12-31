@@ -140,3 +140,24 @@ def get_colormap(name: str):
     """
     return plt.cm.get_cmap(name)
 
+
+def annotate_peaks(ax, peak_x: np.ndarray, peak_y: np.ndarray, 
+                   color: str = 'r', offset: Tuple[float, float] = (1.5, 1.5),
+                   fontsize: int = 8, format_str: str = '%.2f'):
+    """
+    Annotate peak values on a plot.
+    
+    Args:
+        ax: Matplotlib axis
+        peak_x: X coordinates of peaks
+        peak_y: Y coordinates of peaks
+        color: Annotation text color
+        offset: (x, y) offset in points for annotation
+        fontsize: Font size for annotations
+        format_str: Format string for peak values
+    """
+    for xy in zip(peak_x, peak_y):
+        ax.annotate(format_str % xy[1], xy=(xy[0], xy[1]), xycoords='data',
+                   xytext=offset, textcoords='offset points',
+                   fontsize=fontsize, color=color)
+
