@@ -1,6 +1,6 @@
 # TEE Optical Flow Analysis
 
-A comprehensive Python package for calculating and analyzing optical flow in transesophageal echocardiography (TEE) images, with automatic cardiac cycle detection, radial/longitudinal component analysis, and peak detection. This project was adapted from the finetune-SAM github https://github.com/mazurowski-lab/finetune-SAM
+A comprehensive Python package for calculating and analyzing optical flow in transesophageal echocardiography (TEE) images, with automatic cardiac cycle detection, radial/longitudinal component analysis, and peak detection. This project was adapted from the finetune-SAM github https://github.com/mazurowski-lab/finetune-SAM. View out google colab demo here: https://colab.research.google.com/drive/1pqq5JEUzCaI86C6LKSI2cf_oo6wGOTp8?usp=sharing
 
 ## Table of Contents
 
@@ -178,6 +178,52 @@ python -m optical_flow.calculate_optical_flow \
 - `--recalculate`: Recalculate even if files exist
 - `--cuda_device`: CUDA device ID (default: '0')
 
+### Example Script: Peak Line Plots
+
+The `example_peak_plots.py` script provides a complete example of the analysis workflow, generating peak line plots, heatmaps, and videos from HDF5 files:
+
+```bash
+python example_peak_plots.py path/to/file.hdf5 \
+    --output_dir output \
+    --cc_method ecg \
+    --param velocity \
+    --label rv \
+    --percentile 99 \
+    --show_sysdia \
+    --generate_heatmaps \
+    --generate_videos \
+    --fps 30
+```
+
+**Command-line arguments:**
+- `hdf5_filepath`: Path to HDF5 file (required)
+- `--output_dir`: Directory to save output plots (default: 'output')
+- `--cc_method`: Cardiac cycle detection method (default: 'angle')
+  - Options: 'angle', 'area', 'ecg', 'ecg_lazy', 'arterial', 'metadata'
+- `--param`: Optical flow parameter to analyze (default: 'velocity')
+  - Options: 'velocity', 'acceleration', 'PWR'
+- `--label`: Label for the region of interest (default: 'rv')
+- `--cc_label`: Label for cardiac cycle detection (default: 'rv_inner')
+- `--percentile`: Percentile for histogram calculation (default: 99)
+- `--smooth_fraction`: Smoothing fraction for peak detection (default: 0.5)
+- `--show_sysdia`: Show systole/diastole shading on plots
+- `--show_all_peaks`: Show all detected peaks instead of just cardiac cycle peaks
+- `--generate_heatmaps`: Generate heatmap visualizations
+- `--generate_videos`: Generate MP4 video visualizations
+- `--video_dir`: Directory to save MP4 videos (default: '{output_dir}/videos')
+- `--fps`: Frame rate for videos (default: 30)
+- `--no_av_filter`: Disable AV centroid filtering for radial/longitudinal (default: filter enabled)
+- `--av_savgol_window`: Savitzky-Golay window size for AV centroid filtering (default: 10)
+- `--av_savgol_poly`: Savitzky-Golay polynomial order (default: 4)
+
+The script automatically:
+- Detects cardiac cycles using the specified method
+- Calculates histograms and percentile arrays
+- Detects peaks for both single component and radial/longitudinal data
+- Generates peak line plots with statistics
+- Optionally generates heatmaps with waveform overlays
+- Optionally generates MP4 videos with optical flow overlays
+
 ## Architecture
 
 The codebase is organized into modular components:
@@ -299,32 +345,43 @@ vis_config = VisualizationConfig(
 )
 vis_manager = VisualizationManager(vis_config)
 
-# Plot heatmap
+# Plot heatmap (with optional waveform display)
 vis_manager.plot_heatmap(
     mag_arr, ang_arr, mag_edges, ang_edges,
     frame_times, 'velocity', 'cm/s',
-    'filename', 'output/heatmap.png'
+    'filename', 'output/heatmap.png',
+    waveform_data=waveform_data,      # Optional: ECG or arterial pressure data
+    waveform_times=waveform_times,     # Optional: Time array for waveform
+    sampling_rate=sampling_rate,      # Optional: Sampling rate for waveform
+    sys_frames=sys_frames,            # Optional: For systole/diastole shading
+    dia_frames=dia_frames,            # Optional: For systole/diastole shading
+    nframes=ds.nframes,
+    cc_method='ecg',                  # 'ecg', 'ecg_lazy', or 'arterial' to show waveform
+    show_sysdia=True                  # Enable waveform subplot and shading
 )
 
 # Plot single component peak line plot
 # Option 1: Provide pre-calculated peak data
 peak_data = calculate_single_peaks(
     filt_arr, frame_times, sys_frames, dia_frames, ds.nframes,
-    cc_method='angle'
+    cc_method='ecg'  # Use 'ecg', 'ecg_lazy', or 'arterial' for waveform display
 )
 vis_manager.plot_peak_line(
     filt_arr, frame_times, 'velocity', 'cm/s', 'rv',
     'filename', 'output/peak_line.png',
     peak_data=peak_data,
+    waveform_data=waveform_data,      # Optional: Automatically shows waveform if cc_method is 'ecg'/'ecg_lazy'/'arterial'
+    waveform_times=waveform_times,     # Optional: Time array for waveform
+    sampling_rate=sampling_rate,      # Optional: Sampling rate for waveform
     sys_frames=sys_frames,
     dia_frames=dia_frames,
     nframes=ds.nframes,
-    cc_method='angle',
-    show_sysdia=True,              # Show systole/diastole shading
-    mode='RVIO_2class',            # Dataset mode (shading only if != 'otsu')
-    print_report=True,             # Print statistics report
-    return_statistics=False,       # Return statistics tuple
-    show_all_peaks=False           # Show all peaks or just cardiac cycle peaks
+    cc_method='ecg',                  # 'ecg', 'ecg_lazy', or 'arterial' automatically adds waveform subplot
+    show_sysdia=True,                 # Show systole/diastole shading
+    mode='RVIO_2class',               # Dataset mode (shading only if != 'otsu')
+    print_report=True,                # Print statistics report
+    return_statistics=False,          # Return statistics tuple
+    show_all_peaks=False              # Show all peaks or just cardiac cycle peaks
 )
 
 # Option 2: Let plot_peak_line calculate peaks internally
@@ -360,14 +417,17 @@ vis_manager.plot_peak_line_radlong(
     'filename', 'output/radlong_peak_line.png',
     rad_peak_data=rad_peak_data,
     long_peak_data=long_peak_data,
+    waveform_data=waveform_data,      # Optional: Automatically shows waveform if cc_method is 'ecg'/'ecg_lazy'/'arterial'
+    waveform_times=waveform_times,     # Optional: Time array for waveform
+    sampling_rate=sampling_rate,      # Optional: Sampling rate for waveform
     sys_frames=sys_frames,
     dia_frames=dia_frames,
     nframes=ds.nframes,
-    cc_method='angle',
+    cc_method='ecg',                  # 'ecg', 'ecg_lazy', or 'arterial' automatically adds waveform subplot
     show_sysdia=True,
-    true_sysdia_mode='radial',     # Use radial or longitudinal for shading
+    true_sysdia_mode='radial',        # Use radial or longitudinal for shading
     print_report=True,
-    return_statistics=True         # Returns tuple of 18 values
+    return_statistics=True            # Returns tuple of 18 values
 )
 
 # Create radial/longitudinal overlay video
@@ -375,6 +435,43 @@ vis_manager.visualize_radlong(
     rad_arr, long_arr, echo_arr, centroid_list,
     'filename', 'output/video.mp4', ds.nframes
 )
+
+# Generate single component video (magnitude overlay on echo)
+# This is typically done manually as shown in example_peak_plots.py:
+from skimage.color import gray2rgb
+import imageio.v2 as iio
+import matplotlib.colors
+
+echo_arr = ds.get_echo()
+masked_arr = ds.get_masked_arr('velocity', 'rv')
+mag_arr = np.sqrt(masked_arr[..., 0]**2 + masked_arr[..., 1]**2)
+
+# Convert to colormap
+pixel_arr = gray2rgb(echo_arr)
+norm = matplotlib.colors.Normalize(vmin=np.min(mag_arr), vmax=np.max(mag_arr))
+mag_rgb_list = []
+for i in range(ds.nframes):
+    mag_norm = norm(mag_arr[i, ...])
+    mag_rgb = matplotlib.colormaps['hot'](mag_norm)
+    mag_rgb_list.append(mag_rgb[:, :, 0:3])
+
+mag_rgb_arr = np.stack(mag_rgb_list)
+
+# Overlay on echo images
+overlay_arr = np.zeros_like(pixel_arr)
+for i in range(ds.nframes):
+    pixel_frame = pixel_arr[i, ...]
+    mag_frame = mag_rgb_arr[i, ...]
+    pixel_norm = pixel_frame / np.max(pixel_frame) if np.max(pixel_frame) > 0 else pixel_frame
+    mag_norm = mag_frame / np.max(mag_frame) if np.max(mag_frame) > 0 else mag_frame
+    overlay_arr[i, ...] = (0.5 * pixel_norm + 0.5 * mag_norm) * 255
+overlay_arr = overlay_arr.astype(np.uint8)
+
+# Write video
+writer = iio.get_writer('output/video.mp4', fps=30)
+for i in range(ds.nframes):
+    writer.append_data(overlay_arr[i, ...])
+writer.close()
 ```
 
 ### Peak Detection
@@ -504,16 +601,23 @@ cc_config = CardiacCycleConfig(
 vis_config = VisualizationConfig(
     save_dir='output',
     show_plot=False,
+    show_img=False,
+    save_cc_plot=False,
     nbins=1000,
-    colormap_mag='hot',
-    colormap_ang='viridis',
+    invert_rad_yaxis=False,            # Invert y-axis for radial heatmaps
+    invert_long_yaxis=False,           # Invert y-axis for longitudinal heatmaps
+    fps=30,                            # Frame rate for video generation
+    colormap_mag='hot',                # Colormap for magnitude heatmaps
+    colormap_ang='viridis',            # Colormap for angle heatmaps
+    colormap_rad='bwr',                # Colormap for radial component videos
+    colormap_long='BrBG',              # Colormap for longitudinal component videos
     show_peak_annotations=True,        # Show peak value annotations on plots
     peak_marker_size=8,                # Size of peak markers
     peak_marker_style='+',             # Style of peak markers ('+', 'o', 'x', etc.)
-    peak_annotation_fontsize=8,         # Font size for peak annotations
+    peak_annotation_fontsize=8,       # Font size for peak annotations
     peak_annotation_offset=(1.5, 1.5), # (x, y) offset for annotations in points
     radial_peak_color='r',             # Color for radial peak markers
-    longitudinal_peak_color='b',        # Color for longitudinal peak markers
+    longitudinal_peak_color='b',       # Color for longitudinal peak markers
     systolic_peak_color='r',           # Color for systolic peak markers
     diastolic_peak_color='b',          # Color for diastolic peak markers
     show_sysdia_shading=False,         # Show systole/diastole shading on plots
@@ -814,7 +918,15 @@ Caching:
 ### `optical_flow_dataset.py`
 Dataset class:
 - `OpticalFlowDataset`: Main dataset class with context manager support
-- Methods: `get_velocity()`, `get_accel()`, `get_pwr()`, `get_mask()`, `get_masked_arr()`
+- Methods: 
+  - `get_velocity(label)`: Get velocity array for specified label
+  - `get_accel(label)`: Get acceleration array for specified label
+  - `get_pwr(label)`: Get power array for specified label
+  - `get_mask(label)`: Get mask array for specified label
+  - `get_masked_arr(param, label)`: Get masked parameter array
+  - `get_echo()`: Get echo image array
+    - When `keep_file_open=False` (default): Echo data is loaded immediately and stored in memory
+    - When `keep_file_open=True`: Echo data is accessed lazily via HDF5 dataset reference
 
 ### `calculate_optical_flow.py`
 Optical flow calculation from DICOM:
@@ -844,6 +956,32 @@ Custom exceptions:
 - `OpticalFlowCalculationError`: Raised when optical flow calculation fails
 - `ConfigurationError`: Raised when configuration is invalid
 
+## Technical Notes
+
+### Video Generation
+- The codebase uses `imageio.v2` API for video writing (not `imageio.v3`)
+- The `get_writer()` method is available in `imageio.v2` for creating video files
+- Videos are generated with configurable frame rates via `VisualizationConfig.fps`
+
+### Matplotlib Colormaps
+- The codebase uses `matplotlib.colormaps[name]` instead of the deprecated `plt.cm.get_cmap(name)`
+- This ensures compatibility with Matplotlib 3.7+ and avoids deprecation warnings
+
+### Heatmap Coordinate Arrays
+- For proper `pcolormesh` rendering, coordinate arrays must have one more element than the data array
+- The code automatically creates `frame_times_edges` with `nframes + 1` elements for time coordinates
+- Radial/longitudinal heatmaps automatically reconstruct full edge arrays if they were sliced during histogram calculation
+
+### Waveform Display
+- When `cc_method` is 'ecg', 'ecg_lazy', or 'arterial', plotting functions automatically create a waveform subplot if waveform data is available
+- The waveform subplot shows the ECG or arterial pressure signal with systole/diastole shading
+- If waveform data is not available, a message is displayed instead
+
+### Data Loading
+- By default, `OpticalFlowDataset` loads all data immediately and closes the HDF5 file (`keep_file_open=False`)
+- This ensures data is accessible even after the file is closed
+- Set `keep_file_open=True` for lazy loading when memory is constrained
+
 ## Contributing
 
 When contributing to this codebase:
@@ -854,6 +992,8 @@ When contributing to this codebase:
 4. Write docstrings for all public functions
 5. Maintain backward compatibility when possible
 6. Add tests for new functionality
+7. Use `imageio.v2` for video operations
+8. Use `matplotlib.colormaps` instead of deprecated `plt.cm.get_cmap()`
 
 ## License
 
