@@ -32,7 +32,7 @@ if str(finetune_sam_dir) not in sys.path:
 from models.sam import sam_model_registry
 
 # Utilities
-from optical_flow_utils import *
+from optical_flow.optical_flow_utils import *
 from optical_flow.config import OpticalFlowCalculationConfig, default_optical_flow_config
 from optical_flow.waveform_loader import load_all_waveforms
 from optical_flow.exceptions import DICOMReadError, OpticalFlowCalculationError, ConfigurationError
