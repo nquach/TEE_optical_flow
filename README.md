@@ -982,18 +982,6 @@ Custom exceptions:
 - This ensures data is accessible even after the file is closed
 - Set `keep_file_open=True` for lazy loading when memory is constrained
 
-## Contributing
-
-When contributing to this codebase:
-
-1. Follow the modular architecture
-2. Use configuration dataclasses instead of many parameters
-3. Add type hints to all functions
-4. Write docstrings for all public functions
-5. Maintain backward compatibility when possible
-6. Add tests for new functionality
-7. Use `imageio.v2` for video operations
-8. Use `matplotlib.colormaps` instead of deprecated `plt.cm.get_cmap()`
 
 ## License
 
