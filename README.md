@@ -140,9 +140,9 @@ process_video(
     dcm_path='path/to/dicom.dcm',
     save_path='output/optical_flow.hdf5',
     segmentor_model=your_sam_model,
-    mode='RVIO_2class',          # 'A4C', 'RVIO_2class', or 'otsu'
+    mode='RVIO_2class',          # 'RVIO_2class' for RVIO videos, 'A4C' for TTE A4C videos, or 'otsu' to use thresholding segmentors
     OF_algo='TVL1',              # 'TVL1' or 'deepflow'
-    bkgd_comp='none',            # 'WASE' or 'none'
+    bkgd_comp='none',            # default is 'none', use 'WASE' for background vector subtraction as compensation
     no_saliency=False,           # Use saliency for optical flow
     include_waveforms=True,
     waveform_folder='path/to/waveforms',
