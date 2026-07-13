@@ -1,6 +1,6 @@
 # TEE Optical Flow Analysis
 
-A comprehensive Python package for calculating and analyzing optical flow in transesophageal echocardiography (TEE) images, with automatic cardiac cycle detection, radial/longitudinal component analysis, and peak detection. This project was adapted from the finetune-SAM github https://github.com/mazurowski-lab/finetune-SAM. View out google colab demo here: https://colab.research.google.com/drive/1pqq5JEUzCaI86C6LKSI2cf_oo6wGOTp8?usp=sharing
+A comprehensive Python package for calculating and analyzing optical flow in transesophageal echocardiography (TEE) images, with automatic cardiac cycle detection, radial/longitudinal component analysis, and peak detection. This project was adapted from the finetune-SAM github https://github.com/mazurowski-lab/finetune-SAM.
 
 ## Table of Contents
 
